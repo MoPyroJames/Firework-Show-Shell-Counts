@@ -55,6 +55,16 @@
   .download-btn:hover {
     background: #3a72c4;
   }
+  .pdf-btn {
+    background: #7a3fa0;
+  }
+  .pdf-btn:hover {
+    background: #9455c2;
+  }
+  .print-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
   .save-status {
     font-size: 12px;
     color: #b8c4dd;
@@ -322,6 +332,8 @@
     }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -333,6 +345,7 @@
 <div class="header-controls">
   <button id="print-report-btn" class="print-btn" type="button">🖨 Print Report</button>
   <button id="download-summary-btn" class="print-btn download-btn" type="button">⬇ Download Summary</button>
+  <button id="download-pdf-btn" class="print-btn pdf-btn" type="button">📄 Download PDF</button>
   <span id="save-status" class="save-status">Not saved yet</span>
 </div>
 
@@ -1001,22 +1014,20 @@ function buildPrintReport() {
 
 // Builds a fully standalone, read-only HTML file (no inputs, no editing
 // controls) that can be emailed, texted, or shared as a link with shooters.
-function downloadSummary() {
-  // make sure every item's defaults are computed, even ones never expanded
+// Builds a read-only clone of the whole page: no editable inputs, all
+// effects sections expanded, no interactive header controls or scripts.
+// Shared by the HTML download and the PDF export so both always match.
+function buildSnapshotClone() {
   items.forEach((item, itemIndex) => ensureItemDefaults(item, itemIndex));
 
-  // Clone the whole page as it currently looks
   const clone = document.documentElement.cloneNode(true);
 
-  // Drop the header controls (Print/Download buttons + save status) — not needed in a static snapshot
   const headerControls = clone.querySelector(".header-controls");
   if (headerControls) headerControls.remove();
 
-  // Drop the hidden print-only report container — not needed here
   const printContainer = clone.querySelector("#print-report-content");
   if (printContainer) printContainer.remove();
 
-  // Replace every editable quantity box with plain static text showing its current value
   clone.querySelectorAll(".qty-inputs input").forEach(input => {
     const span = document.createElement("span");
     span.className = "qty-value-static";
@@ -1024,20 +1035,15 @@ function downloadSummary() {
     input.replaceWith(span);
   });
 
-  // Open every <details> section by default so shooters see everything without clicking
   clone.querySelectorAll("details").forEach(d => d.setAttribute("open", ""));
-
-  // Remove all scripts — nothing left to interact with, and <details> works natively without JS
   clone.querySelectorAll("script").forEach(s => s.remove());
 
-  // Add a small static banner explaining this is a locked snapshot
   const body = clone.querySelector("body");
   const banner = document.createElement("div");
   banner.style.cssText = "background:#2b5aa1;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;text-align:center;";
   banner.textContent = "Read-only snapshot — generated " + new Date().toLocaleString() + ". Quantities cannot be edited.";
   body.insertBefore(banner, body.firstChild);
 
-  // Style the static quantity spans to look like the original input boxes
   const style = document.createElement("style");
   style.textContent = `
     .qty-value-static {
@@ -1055,6 +1061,11 @@ function downloadSummary() {
   `;
   clone.querySelector("head").appendChild(style);
 
+  return clone;
+}
+
+function downloadSummary() {
+  const clone = buildSnapshotClone();
   const doc = "<!DOCTYPE html>\n" + clone.outerHTML;
 
   const blob = new Blob([doc], { type: "text/html" });
@@ -1068,8 +1079,71 @@ function downloadSummary() {
   URL.revokeObjectURL(url);
 }
 
+// Renders the same read-only snapshot into an off-screen container, captures
+// it as an image, and slices it into pages of an actual downloadable PDF.
+async function downloadPDF() {
+  const btn = document.getElementById("download-pdf-btn");
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Generating PDF…";
+
+  try {
+    const clone = buildSnapshotClone();
+    const bodyClone = clone.querySelector("body");
+
+    // Attach the snapshot body off-screen so it has real layout for html2canvas
+    const wrapper = document.createElement("div");
+    wrapper.style.position = "fixed";
+    wrapper.style.top = "0";
+    wrapper.style.left = "-99999px";
+    wrapper.style.width = "900px";
+    wrapper.appendChild(bodyClone);
+    document.body.appendChild(wrapper);
+
+    // give the browser a moment to lay everything out
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const canvas = await html2canvas(bodyClone, {
+      backgroundColor: "#0d1526",
+      scale: 2,
+      windowWidth: 900
+    });
+
+    document.body.removeChild(wrapper);
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "pt", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    pdf.save("fireworks-show-assignments-summary.pdf");
+  } catch (err) {
+    alert("PDF generation failed: " + err.message + "\n\nTry the Download Summary (HTML) button instead.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
 document.getElementById("print-report-btn").addEventListener("click", buildPrintReport);
 document.getElementById("download-summary-btn").addEventListener("click", downloadSummary);
+document.getElementById("download-pdf-btn").addEventListener("click", downloadPDF);
 </script>
 
 </body>
