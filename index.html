@@ -278,7 +278,7 @@
     display: none;
   }
   @media print {
-    body > *:not(#print-report-content) {
+    body > *:not(#print-report-content):not(#print-snapshot-content) {
       display: none !important;
     }
     body {
@@ -332,8 +332,6 @@
     }
   }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -345,13 +343,14 @@
 <div class="header-controls">
   <button id="print-report-btn" class="print-btn" type="button">🖨 Print Report</button>
   <button id="download-summary-btn" class="print-btn download-btn" type="button">⬇ Download Summary</button>
-  <button id="download-pdf-btn" class="print-btn pdf-btn" type="button">📄 Download PDF</button>
+  <button id="download-pdf-btn" class="print-btn pdf-btn" type="button">📄 Save as PDF</button>
   <span id="save-status" class="save-status">Not saved yet</span>
 </div>
 
 <div id="cases"></div>
 
 <div id="print-report-content" class="print-only"></div>
+<div id="print-snapshot-content" class="print-only"></div>
 
 <h2 class="section-title">Final Cost by Show</h2>
 <table class="summary-table">
@@ -1081,64 +1080,16 @@ function downloadSummary() {
 
 // Renders the same read-only snapshot into an off-screen container, captures
 // it as an image, and slices it into pages of an actual downloadable PDF.
-async function downloadPDF() {
-  const btn = document.getElementById("download-pdf-btn");
-  const originalLabel = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Generating PDF…";
+// Uses the browser's own native print-to-PDF — no external libraries,
+// so nothing can be blocked by a network filter, ad-blocker, or CSP.
+function downloadPDF() {
+  const clone = buildSnapshotClone();
+  const bodyClone = clone.querySelector("body");
 
-  try {
-    const clone = buildSnapshotClone();
-    const bodyClone = clone.querySelector("body");
+  const target = document.getElementById("print-snapshot-content");
+  target.innerHTML = bodyClone.innerHTML;
 
-    // Attach the snapshot body off-screen so it has real layout for html2canvas
-    const wrapper = document.createElement("div");
-    wrapper.style.position = "fixed";
-    wrapper.style.top = "0";
-    wrapper.style.left = "-99999px";
-    wrapper.style.width = "900px";
-    wrapper.appendChild(bodyClone);
-    document.body.appendChild(wrapper);
-
-    // give the browser a moment to lay everything out
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const canvas = await html2canvas(bodyClone, {
-      backgroundColor: "#0d1526",
-      scale: 2,
-      windowWidth: 900
-    });
-
-    document.body.removeChild(wrapper);
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("p", "pt", "a4");
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
-
-    pdf.save("fireworks-show-assignments-summary.pdf");
-  } catch (err) {
-    alert("PDF generation failed: " + err.message + "\n\nTry the Download Summary (HTML) button instead.");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalLabel;
-  }
+  window.print();
 }
 
 document.getElementById("print-report-btn").addEventListener("click", buildPrintReport);
