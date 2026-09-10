@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fireworks Show Breakdown</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #faf7f2;
+    color: #2b2320;
+    margin: 0;
+    padding: 24px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  h1 {
+    font-size: 22px;
+    border-bottom: 3px solid #b5451b;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: #6b5d52;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #e3d8ca;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .card-header {
+    padding: 12px 16px 4px 16px;
+    background: #fdfaf6;
+  }
+  .card-header .name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .card-header .meta {
+    font-weight: 400;
+    color: #6b5d52;
+    font-size: 13px;
+  }
+  .shell-row {
+    display: flex;
+    gap: 18px;
+    padding: 8px 16px 12px 16px;
+    font-size: 13px;
+    color: #4a3f37;
+    background: #fdfaf6;
+  }
+  .shell-row div { flex: 1; }
+  .shell-row .label { color: #8a7c6f; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .shell-row .val { font-size: 15px; font-weight: 600; color: #2b2320; }
+  .whole-case { color: #b5451b; font-weight: 600; }
+  details {
+    border-top: 1px solid #f0e8dc;
+  }
+  summary {
+    cursor: pointer;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+    color: #b5451b;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary .arrow {
+    transition: transform 0.15s ease;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  details[open] summary .arrow { transform: rotate(90deg); }
+  table.effects {
+    width: calc(100% - 32px);
+    margin: 0 16px 14px 16px;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.effects th, table.effects td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0e8dc;
+  }
+  table.effects th {
+    color: #8a7c6f;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+  .chain-heading {
+    padding: 10px 16px 4px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #b5451b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .chain-effects-list {
+    padding: 0 16px 8px 16px;
+    font-size: 12px;
+    color: #6b5d52;
+    line-height: 1.6;
+  }
+  .no-effects {
+    padding: 0 16px 14px 16px;
+    font-size: 13px;
+    color: #a89a8c;
+    font-style: italic;
+  }
+  table.effects td.effect-name { width: 60%; }
+  .show-btns {
+    display: flex;
+    gap: 4px;
+  }
+  .show-btn {
+    border: 1px solid #d8c9b8;
+    background: #fdfaf6;
+    color: #6b5d52;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .show-btn:hover {
+    border-color: #b5451b;
+  }
+  .qty-inputs {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .qty-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .qty-field label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .qty-field.f-1 label { color: #b5451b; }
+  .qty-field.f-2 label { color: #2b7a4b; }
+  .qty-field.f-3 label { color: #2b5aa1; }
+  .qty-field input {
+    width: 44px;
+    text-align: center;
+    border: 1px solid #d8c9b8;
+    border-radius: 5px;
+    padding: 3px 2px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .qty-field.f-1 input:focus { border-color: #b5451b; outline: none; }
+  .qty-field.f-2 input:focus { border-color: #2b7a4b; outline: none; }
+  .qty-field.f-3 input:focus { border-color: #2b5aa1; outline: none; }
+  .qty-total {
+    font-size: 11px;
+    color: #8a7c6f;
+    margin-left: 4px;
+    white-space: nowrap;
+  }
+  .qty-total.balanced { color: #2b7a4b; font-weight: 700; }
+  .qty-total.over { color: #b5451b; font-weight: 700; }
+  .effects-tally {
+    display: flex;
+    gap: 16px;
+    padding: 8px 16px 12px 16px;
+    font-size: 12px;
+    color: #6b5d52;
+    border-top: 1px dashed #f0e8dc;
+  }
+  .effects-tally .tally-val { font-weight: 700; }
+  .tally-1 .tally-val { color: #b5451b; }
+  .tally-2 .tally-val { color: #2b7a4b; }
+  .tally-3 .tally-val { color: #2b5aa1; }
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 24px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .summary-table th, .summary-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid #f0e8dc;
+  }
+  .summary-table th {
+    background: #b5451b;
+    color: #fff;
+    font-size: 13px;
+  }
+  .summary-table td { font-size: 14px; }
+  .summary-table tr:last-child td { font-weight: 700; background: #fdf0e8; }
+  .section-title {
+    margin-top: 30px;
+    font-size: 17px;
+    color: #b5451b;
+  }
+</style>
+</head>
+<body>
+
+<h1>Fireworks Show Breakdown — Innsbrook / BG1 / BG2</h1>
+
+<div id="cases"></div>
+
+<h2 class="section-title">Final Cost by Show</h2>
+<table class="summary-table">
+  <tr><th>Show</th><th>Total</th></tr>
+  <tr><td>Innsbrook</td><td>$3,530.11</td></tr>
+  <tr><td>BG1</td><td>$3,530.11</td></tr>
+  <tr><td>BG2</td><td>$3,529.78</td></tr>
+</table>
+
+<script>
+const items = [
+  {name: "2.5\" Pyromax Assortment A 12/8", caseSize: "96/1", cps: "$3.54", s1:96, s2:96, s3:96,
+    effects: [
+      "Yellow Purple Silver Red Wave (24)",
+      "Red Strobe (24)",
+      "White Strobe (24)",
+      "Colorful Dahlia (24)",
+      "Red Brocade Crown (24)",
+      "Red Peony (24)",
+      "Blue Peony (24)",
+      "Red White Blue Chrysanthemum (24)",
+      "Blue Purple Chrysanthemum (24)",
+      "Dark Orange Peony w/ Green Ring (24)",
+      "Gold Strobe w/ Crackling Pistil (24)",
+      "Orange Purple Peony (24)"
+    ]
+  },
+  {name: "2.5\" Titanium Salute w/ Large Red Tail", caseSize: "96/1", cps: "$2.81", s1:96, s2:96, s3:96,
+    effects: [
+      "Titanium Salute w/ Large Red Tail (288)"
+    ]
+  },
+  {name: "3\" Gold Ti Willow w/ Red Strobe Pistil", caseSize: "72/1", cps: "$4.47", s1:24, s2:24, s3:24,
+    effects: [
+      "Gold Ti Willow w/ Red Strobe Pistil (72)"
+    ]
+  },
+  {name: "3\" Assortment (36 Effects w/ Tail)", caseSize: "72/1", cps: "$5.31", s1:72, s2:72, s3:72,
+    effects: [
+      "Red Peony w/ Red Tail (6)",
+      "White Peony w/ White Tail (6)",
+      "Blue Peony w/ Blue Tail (6)",
+      "Red & White Super Strobe w/ Red Tail (6)",
+      "Green & Orange Super Strobe w/ Orange Tail (6)",
+      "Red to Green Peony w/ Red Tail (6)",
+      "Green to Purple Peony w/ Purple Tail (6)",
+      "Blue Peony to Crackling w/ Blue Tail (6)",
+      "Colorful Swimming Star w/ Gold Tail (6)",
+      "Red Chrys w/ Red Tail (6)",
+      "Yellow Wave w/ Yellow Tail (6)",
+      "Silver Wave to Red w/ Red Tail (6)",
+      "Gold Strobe to Purple w/ Purple Tail (6)",
+      "Gold Wave to Green Strobe w/ Green Tail (6)",
+      "Gold Wave to Red w/ Red Tail (6)",
+      "Gold Wave to White w/ Gold Tail (6)",
+      "Gold Willow to Red w/ Red Tail (6)",
+      "Gold Willow to Red Strobe w/ Red Tail (6)",
+      "Brocade Crown to Green w/ Brocade Crown Tail (6)",
+      "Brocade Crown to Red w/ Brocade Crown Tail (6)",
+      "Brocade Crown to Colorful w/ Brocade Crown Tail (6)",
+      "Flower Crown to Red w/ Brocade Crown Tail (6)",
+      "Gold Ti Willow w/ Gold Tail (6)",
+      "Silver Willow w/ White Tail (6)",
+      "Crackling Willow w/ Crackling Tail (6)",
+      "Chrys to Red to Dragon Egg w/ Crackling Tail (6)",
+      "Double Dragon Egg w/ Crackling Tail (6)",
+      "Brocade Crown + White Strobe Pistil w/ Gold Tail (6)",
+      "Green Peony + Red Coco Pistil w/ Red Tail (6)",
+      "Purple Chrys + Crackling Pistil w/ Purple Tail (6)",
+      "Red Palm + Green Strobe Pistil w/ Green Tail (6)",
+      "Silver Chrys + Crackling Pistil w/ Orange Tail (6)",
+      "White Strobe Peony + Blue Pistil w/ Blue Tail (6)",
+      "Yellow Peony + Green Strobe Pistil w/ Green Tail (6)",
+      "Brocade Crown + Blue Dahlia w/ Blue Tail (6)",
+      "Sea Blue Peony + Orange Pistil w/ Blue Strobe Tail (6)"
+    ]
+  },
+  {name: "3\" Finale Chain – Assorted 3 Sec Time Chain (36 Effects w/ Tail)", caseSize: "6/1", cps: "$5.88", s1:"2 chains (24 shells)", s2:"2 chains (24 shells)", s3:"2 chains (24 shells)",
+    chains: [
+      { label: "Chain 1", effects: [
+        "Red Peony w/ Red Tail",
+        "White Peony w/ White Tail",
+        "Blue Peony w/ Blue Tail",
+        "Red & White Super Strobe w/ Red Tail",
+        "Green & Orange Super Strobe w/ Orange Tail",
+        "Red to Green Peony w/ Red Tail",
+        "Green to Purple Peony w/ Purple Tail",
+        "Blue Peony to Crackling w/ Blue Tail",
+        "Colorful Swimming Star w/ Gold Tail",
+        "Red Chrys w/ Red Tail",
+        "Yellow Wave w/ Yellow Tail",
+        "Silver Wave to Red w/ Red Tail"
+      ]},
+      { label: "Chain 2", effects: [
+        "Gold Strobe to Purple w/ Purple Tail",
+        "Gold Wave to Green Strobe w/ Green Tail",
+        "Gold Wave to Red w/ Red Tail",
+        "Gold Wave to White w/ Gold Tail",
+        "Gold Willow to Red w/ Red Tail",
+        "Gold Willow to Red Strobe w/ Red Tail",
+        "Brocade Crown to Green w/ Brocade Crown Tail",
+        "Brocade Crown to Red w/ Brocade Crown Tail",
+        "Brocade Crown to Colorful w/ Brocade Crown Tail",
+        "Flower Crown to Red w/ Brocade Crown Tail",
+        "Gold Ti Willow w/ Gold Tail",
+        "Silver Willow w/ White Tail"
+      ]},
+      { label: "Chain 3", effects: [
+        "Crackling Willow w/ Crackling Tail",
+        "Chrys to Red to Dragon Egg w/ Crackling Tail",
+        "Double Dragon Egg w/ Crackling Tail",
+        "Brocade Crown + White Strobe Pistil w/ Gold Tail",
+        "Green Peony + Red Coco Pistil w/ Red Tail",
+        "Purple Chrys + Crackling Pistil w/ Purple Tail",
+        "Red Palm + Green Strobe Pistil w/ Green Tail",
+        "Silver Chrys + Crackling Pistil w/ Orange Tail",
+        "White Strobe Peony + Blue Pistil w/ Blue Tail",
+        "Yellow Peony + Green Strobe Pistil w/ Green Tail",
+        "Brocade Crown + Blue Dahlia w/ Blue Tail",
+        "Sea Blue Peony + Orange Pistil w/ Blue Strobe Tail"
+      ]}
+    ]
+  },
+  {name: "3\" Night Owl Prime Assortment A 12/3", caseSize: "36/1", cps: "$4.86", s1:12, s2:12, s3:12,
+    effects: [
+      "Color (Moving Star) w/ White Strobe Pistil w/ Rising Golden Wave Tail (3)",
+      "Golden Wave to Green Wave Moving Star w/ Rising Crackling Pistil w/ Golden Wave Tail (3)",
+      "Yellow Peony w/ Green Strobe Pistils w/ Rising Silver Tail (3)",
+      "Chrys to Blue w/ Silver Chrys Pistil w/ Rising Crackling Tail (3)",
+      "Violet to White Strobe w/ Green Strobe Pistil w/ Rising Golden Glittering Tail (3)",
+      "Brocade with Purple Pistil w/ Rising Gold Glittering Tail (3)",
+      "Turquoise Peony w/ Orange Strobe Pistil w/ Rising Silver Glittering Tail (3)",
+      "Brocade Chrys to Multi-Color Tips w/ Rising Brocade Tail (3)",
+      "Blue Stars and Green Strobe Peony w/ Rising Blue Tail and Rising Green Strobe Tail (Double Tail) (3)",
+      "Multi-Color Dahlia w/ White Strobe Pistil w/ Rising Silver Tail (3)",
+      "Glittering Silver to Blue and Glittering Silver to Green Half and Half w/ Rising Glittering Silver Tail (3)",
+      "Half Red Strobe, Half Green Strobe w/ Rising Silver Tail (3)"
+    ]
+  },
+  {name: "3\" Night Owl Prime Assortment B 12/3", caseSize: "36/1", cps: "$4.86", s1:12, s2:12, s3:12,
+    effects: [
+      "Moving Blue Wave w/ Green Strobe Pistil w/ Rising Golden Wave Tail (3)",
+      "Green Ring to Lemon Glittering Pistil w/ Rising Silver Tail (3)",
+      "Magenta Wave w/ Rising Silver Tail (3)",
+      "Purple Wave w/ Rising Palm Tree Tail (3)",
+      "Half Purple Strobe and Half Lemon Strobe w/ Silver Crackling Pistil w/ Rising Silver Tail (3)",
+      "Half Blue and Half Lemon Strobe w/ Silver Crackling Pistil w/ Rising Silver Tail (3)",
+      "White Strobe Peony w/ Rising Silver Tail (3)",
+      "Green Strobe Peony w/ Rising Silver Tail (3)",
+      "Brocade with Blue Pistil w/ Rising Gold Glittering Tail (3)",
+      "Special Red Strobe Peony w/ Rising Silver Tail (3)",
+      "Special Orange Strobe Peony w/ Rising Silver Tail (3)",
+      "Lemon Glittering Peony w/ Rising Silver Tail (3)"
+    ]
+  },
+  {name: "4\" Color Time Rain Willow w/ Tail", caseSize: "36/1", cps: "$9.08", s1:12, s2:12, s3:12,
+    effects: [
+      "Color Time Rain Willow w/ Tail (36)"
+    ]
+  },
+  {name: "4\" Pink, Grass Green, Lemon, Water Color Dahlia w/ Tail", caseSize: "36/1", cps: "$9.08", s1:12, s2:12, s3:12,
+    effects: [
+      "Pink, Grass Green, Lemon, Water Color Dahlia w/ Tail (36)"
+    ]
+  },
+  {name: "4\" Night Owl Special Effects Assortment B", caseSize: "18/1", cps: "$9.44", s1:12, s2:12, s3:12,
+    effects: [
+      "Saturn Ring Shell – Yellow to Green Strobe Planet w/ Orange to Red Strobe Ring (No Tail) (6)",
+      "Green Ring to Lemon Glittering Pistil w/ Rising Red Tail (6)",
+      "Red Sun Flower to Green w/ Rising Golden Tail (6)",
+      "Half Glittering Silver to Blue and Half Glittering Silver to Green Half and Half w/ Rising Glittering Silver Tail (6)",
+      "Blue Jelly Fish (No Tail) (6)",
+      "Red and Green Falling Leaves w/ Rising Silver Tail (6)"
+    ]
+  },
+  {name: "4\" Gold Willow w/ Green Dark Red Ring (Night Owl Premium)", caseSize: "18/1", cps: "$9.72", s1:6, s2:6, s3:6,
+    effects: [
+      "Gold Willow w/ Green Dark Red Ring (18)"
+    ]
+  },
+  {name: "4\" Finale Chain – Colorful Strobe Willow Waterfall (chains of 5)", caseSize: "6/1", cps: "$12.00", s1:"2 chains (10 shells)", s2:"2 chains (10 shells)", s3:"2 chains (10 shells)",
+    chains: [
+      { label: "Colorful Strobe Willow Waterfall", effects: [
+        "Colorful Strobe Willow Waterfall (5 shells per chain)"
+      ]}
+    ]
+  },
+  {name: "5\" Pyromax Assortment A 12/2", caseSize: "24/1", cps: "$16.04", s1:"24 (whole case)", s2:"–", s3:"–",
+    effects: [
+      "Orange to Purple Peony (2)",
+      "Glittering Chrysanthemum (2)",
+      "Gold Willow to Red Plum Blossom w/ Purple Ring (2)",
+      "Chrysanthemum to Red to Silver (2)",
+      "Brocade Crown to Dragon Egg (2)",
+      "Red Dark Green Dark Orange (2)",
+      "Golden Ti Willow w/ Green Ring (2)",
+      "Silver Crown to Red Strobe (2)",
+      "Blue to Silver Strobe (2)",
+      "Blue Jelly Fish (2)",
+      "Crackling Flower Big Willow (2)",
+      "Red Green Yellow Purple Coco (2)"
+    ]
+  },
+  {name: "5\" Pyromax Assortment C 4/6", caseSize: "24/1", cps: "$16.04", s1:"–", s2:"24 (whole case)", s3:"–",
+    effects: [
+      "White Strobe Willow (4)",
+      "Green Strobe Willow (4)",
+      "Red Strobe Willow (4)",
+      "Gold Strobe Willow (4)",
+      "Colorful Strobe Willow (4)",
+      "Gold Ti Willow w/ Colorful Dahlia Pistil (4)"
+    ]
+  },
+  {name: "5\" Pyromax Assortment E 4/6", caseSize: "24/1", cps: "$16.67", s1:"–", s2:"–", s3:"24 (whole case)",
+    effects: [
+      "Half Red Half Blue + Silver Crown Ring (4)",
+      "Red Dark to Green Dark to Orange (4)",
+      "Silver Wave to Blue to Red (4)",
+      "Chrys to Blue to Red + Blue Pistil (4)",
+      "Blue Peony + Red Coco + Brocade Pistil (4)",
+      "Ghost Red to Blue Ring + Brocade Ring + Blue Saturn w/ Silver Tail (4)"
+    ]
+  },
+  {name: "5\" Ti Crys Strobe Wave Ring w/ Dragon Egg Pistil (Night Owl Premium)", caseSize: "18/1", cps: "$16.70", s1:6, s2:6, s3:6,
+    effects: [
+      "Ti Crys Strobe Wave Ring w/ Dragon Egg Pistil (18)"
+    ]
+  },
+  {name: "5\" New Color Crossette w/ Gold Tail", caseSize: "18/1", cps: "$15.83", s1:6, s2:6, s3:6,
+    effects: [
+      "New Color Crossette w/ Gold Tail (18)"
+    ]
+  },
+  {name: "5\" Blue Crackling Mushroom (Night Owl Premium)", caseSize: "18/1", cps: "$16.70", s1:6, s2:6, s3:6,
+    effects: [
+      "Blue Crackling Mushroom (18)"
+    ]
+  },
+  {name: "5\" Silver Moving Star w/ Red Strobe Pistil (Night Owl Premium)", caseSize: "18/1", cps: "$16.65", s1:6, s2:6, s3:6,
+    effects: [
+      "Silver Moving Star w/ Red Strobe Pistil (18)"
+    ]
+  },
+  {name: "6\" Gold Strobe + Red Strobe 2 Breaks Shells in Shell w/ Silver Tail (PyroMAX)", caseSize: "9/1", cps: "$32.75", s1:3, s2:3, s3:3,
+    effects: [
+      "Gold Strobe + Red Strobe 2 Breaks Shells in Shell w/ Silver Tail (9)"
+    ]
+  },
+  {name: "6\" Golden Willow to White Strobe + White Strobe Pistil w/ Brocade Tail (Night Owl Premium)", caseSize: "9/1", cps: "$32.98", s1:9, s2:9, s3:9,
+    effects: [
+      "Golden Willow to White Strobe + White Strobe Pistil w/ Brocade Tail (27)"
+    ]
+  },
+  {name: "6\" Changeable Chrys (Chrys Blue to Red to Silver) with Tail", caseSize: "9/1", cps: "$28.00", s1:3, s2:3, s3:3,
+    effects: [
+      "Changeable Chrys (Chrys Blue to Red to Silver) with Tail (9)"
+    ]
+  },
+  {name: "6\" Assortment H (9 Effects w/ Tail)", caseSize: "9/1", cps: "$33.93", s1:"9 (whole case)", s2:"–", s3:"–",
+    effects: [
+      "Flower Crown to Blue + Blue Pistil w/ Blue Tail",
+      "Flower Crown Chrys to Green Strobe + White Strobe Pistil w/ White Tail",
+      "Golden Wave to Dragon Egg w/ Gold Tail",
+      "Red to Blue to Green Peony w/ Green Tail",
+      "Red Wave to Green + Crackling Pistil w/ Crackling Tail",
+      "Silver Crown to Red + White Strobe Ring w/ Red Tail",
+      "Gold Willow to Colorful + Silver Ring + Red Strobe Pistil w/ Purple Tail",
+      "Red to Blue to Sakura w/ Blue Tail",
+      "Silver Strobe + Red Pistil w/ Red Tail"
+    ]
+  },
+  {name: "6\" Assortment G (9 Effects w/ Tail)", caseSize: "9/1", cps: "$33.93", s1:"–", s2:"9 (whole case)", s3:"–",
+    effects: [
+      "Blue Dark Green Peony w/ Blue Tail",
+      "Blue to Flower Crown + Silver to Red Ring w/ Flower Crown Tail",
+      "Brocade Chrys + Green Strobe Pistil w/ Green Tail",
+      "Brocade Crown to Red Strobe w/ Red Tail",
+      "Brocade Ti Willow + Color Dahlia Pistil w/ Brocade Tail",
+      "Color Chrys w/ Gold Tail",
+      "Flower Crown + Blue Green Strobe Pistil w/ Blue Tail",
+      "Half Red Green Pistil + Half Green Red Pistil + Silver Ring w/ White Tail",
+      "Gold Willow to Blue to Crackle + Red to Crackle Ring w/ Gold Tail"
+    ]
+  },
+  {name: "6\" Pyromax Assortment C 9/1", caseSize: "9/1", cps: "$32.22", s1:"–", s2:"–", s3:"9 (whole case)",
+    effects: [
+      "Half Red Half Blue Peony + Silver Wave Ring",
+      "Red to Sea Blue Ghost Ring and Brocade Ring + Blue Saturn w/ Silver Tail",
+      "Red and Silver Wave Crossette Double Ring",
+      "Red Ghost to Green Ghost w/ Red Tail",
+      "Gold Silk Willow to Red Plum Blossom + Red to Blue Ghost Ring + Double Plum Blossom Pistil w/ Red Tail",
+      "Gold Willow to Blue + Blue Pistil",
+      "Ti Crackling Gold Willow",
+      "Super Strobe Crown + Lemon Super Strobe Pistil w/ Silver Tail",
+      "Red Strobe Willow Shells in Shell"
+    ]
+  },
+  {name: "6\" Ghost Medusa", caseSize: "9/1", cps: "$32.90", s1:3, s2:3, s3:3,
+    effects: [
+      "Ghost Medusa (9)"
+    ]
+  },
+];
+
+const container = document.getElementById("cases");
+
+const SHOW_NAMES = { 1: "Innsbrook", 2: "BG1", 3: "BG2" };
+// assignments[itemIndex][effectIndex] = 1, 2, or 3 (or undefined)
+const assignments = {};
+
+function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
+  effectsContainer.innerHTML = "";
+  if (!item.effects && !item.chains) {
+    const noEffects = document.createElement("div");
+    noEffects.className = "no-effects";
+    noEffects.textContent = "No itemized effects list provided yet.";
+    effectsContainer.appendChild(noEffects);
+    tallyContainer.style.display = "none";
+    return;
+  }
+
+  // assignments[itemIndex][key] = array of show numbers, e.g. [1], [2,3], [1,2,3]
+  // key is either an effect index (flat items) or "chainIdx-effectIdx" (chained items)
+  if (!assignments[itemIndex]) assignments[itemIndex] = {};
+
+  function parseQty(effectLabel) {
+    const match = effectLabel.match(/\((\d+)\)\s*$/);
+    return match ? parseInt(match[1], 10) : 1;
+  }
+
+  function getActiveShows(it) {
+    const vals = [it.s1, it.s2, it.s3];
+    const active = [];
+    vals.forEach((v, idx) => {
+      let numeric = 0;
+      if (typeof v === "number") {
+        numeric = v;
+      } else if (typeof v === "string") {
+        const trimmed = v.trim();
+        if (trimmed !== "–" && trimmed !== "-") {
+          const m = trimmed.match(/(\d+)/);
+          numeric = m ? parseInt(m[1], 10) : 0;
+        }
+      }
+      if (numeric > 0) active.push(idx + 1);
+    });
+    return active.length ? active : [1, 2, 3];
+  }
+
+  function evenSplit(total) {
+    const active = getActiveShows(item);
+    const n = active.length;
+    const base = Math.floor(total / n);
+    const remainder = total % n;
+    const result = {1:0, 2:0, 3:0};
+    active.forEach((showNum, i) => {
+      result[showNum] = base + (i < remainder ? 1 : 0);
+    });
+    return result;
+  }
+
+  function buildRow(table, key, effectLabel, numberLabel) {
+    const tr = document.createElement("tr");
+
+    if (numberLabel !== undefined) {
+      const tdNum = document.createElement("td");
+      tdNum.textContent = numberLabel;
+      tr.appendChild(tdNum);
+    }
+
+    const tdName = document.createElement("td");
+    tdName.className = "effect-name";
+    tdName.textContent = effectLabel;
+    tr.appendChild(tdName);
+
+    const tdBtns = document.createElement("td");
+    const totalQty = parseQty(effectLabel);
+    if (!assignments[itemIndex][key]) {
+      assignments[itemIndex][key] = evenSplit(totalQty);
+    }
+    const current = assignments[itemIndex][key];
+
+    const wrap = document.createElement("div");
+    wrap.className = "qty-inputs";
+
+    [1, 2, 3].forEach(showNum => {
+      const field = document.createElement("div");
+      field.className = "qty-field f-" + showNum;
+      const label = document.createElement("label");
+      label.textContent = SHOW_NAMES[showNum];
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.value = current[showNum] || 0;
+      input.addEventListener("input", () => {
+        const live = assignments[itemIndex][key];
+        live[showNum] = Math.max(0, parseInt(input.value, 10) || 0);
+        updateTotalLabel();
+        updateTally();
+      });
+      field.appendChild(label);
+      field.appendChild(input);
+      wrap.appendChild(field);
+    });
+
+    const totalLabel = document.createElement("span");
+    totalLabel.className = "qty-total";
+    function updateTotalLabel() {
+      const c = assignments[itemIndex][key] || {1:0,2:0,3:0};
+      const sum = (c[1]||0) + (c[2]||0) + (c[3]||0);
+      totalLabel.textContent = `${sum} / ${totalQty}`;
+      totalLabel.classList.remove("balanced", "over");
+      if (sum === totalQty) totalLabel.classList.add("balanced");
+      else if (sum > totalQty) totalLabel.classList.add("over");
+    }
+    updateTotalLabel();
+    wrap.appendChild(totalLabel);
+
+    tdBtns.appendChild(wrap);
+    tr.appendChild(tdBtns);
+    table.appendChild(tr);
+  }
+
+  function updateTally() {
+    const counts = {1:0, 2:0, 3:0};
+    Object.values(assignments[itemIndex]).forEach(c => {
+      counts[1] += c[1] || 0;
+      counts[2] += c[2] || 0;
+      counts[3] += c[3] || 0;
+    });
+    tallyContainer.innerHTML = `
+      <div class="tally-1">${SHOW_NAMES[1]}: <span class="tally-val">${counts[1]}</span> shells</div>
+      <div class="tally-2">${SHOW_NAMES[2]}: <span class="tally-val">${counts[2]}</span> shells</div>
+      <div class="tally-3">${SHOW_NAMES[3]}: <span class="tally-val">${counts[3]}</span> shells</div>
+    `;
+  }
+
+  if (item.chains) {
+    // total physical chains across the whole item = sum of "N chains" parsed from s1/s2/s3
+    function parseChainCount(v) {
+      if (typeof v !== "string") return 0;
+      const m = v.match(/(\d+)\s*chain/);
+      return m ? parseInt(m[1], 10) : 0;
+    }
+    const totalChains = parseChainCount(item.s1) + parseChainCount(item.s2) + parseChainCount(item.s3);
+    const qtyPerDesign = item.chains.length ? totalChains / item.chains.length : 0;
+    const activeShowsForChains = getActiveShows(item);
+
+    function chainDefaultSplit(total, offset) {
+      const result = {1:0, 2:0, 3:0};
+      let remaining = total;
+      let idx = offset % activeShowsForChains.length;
+      while (remaining > 0) {
+        const show = activeShowsForChains[idx % activeShowsForChains.length];
+        result[show]++;
+        remaining--;
+        idx++;
+      }
+      return result;
+    }
+
+    item.chains.forEach((chain, chainIdx) => {
+      const chainHeading = document.createElement("div");
+      chainHeading.className = "chain-heading";
+      chainHeading.textContent = chain.label + " (whole chain — assign as one unit)";
+      effectsContainer.appendChild(chainHeading);
+
+      const list = document.createElement("div");
+      list.className = "chain-effects-list";
+      list.innerHTML = chain.effects.map((e, i) => `<div>${i + 1}. ${e}</div>`).join("");
+      effectsContainer.appendChild(list);
+
+      const table = document.createElement("table");
+      table.className = "effects";
+      table.innerHTML = `<tr><th>Chain</th><th>Assign chains to Show</th></tr>`;
+      const chainKey = `chain-${chainIdx}`;
+      if (!assignments[itemIndex][chainKey]) {
+        assignments[itemIndex][chainKey] = chainDefaultSplit(qtyPerDesign, chainIdx);
+      }
+      buildRow(table, chainKey, `${chain.label} (${qtyPerDesign})`);
+      effectsContainer.appendChild(table);
+    });
+  } else {
+    const table = document.createElement("table");
+    table.className = "effects";
+    table.innerHTML = `<tr><th>#</th><th>Effect</th><th>Assign to Show</th></tr>`;
+    item.effects.forEach((effect, i) => {
+      buildRow(table, i, effect, i + 1);
+    });
+    effectsContainer.appendChild(table);
+  }
+
+  tallyContainer.style.display = "flex";
+  updateTally();
+}
+
+items.forEach((item, itemIndex) => {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const header = document.createElement("div");
+  header.className = "card-header";
+  header.innerHTML = `
+    <div class="name">${item.name}</div>
+    <div class="meta">${item.caseSize} case &nbsp;•&nbsp; ${item.cps}/shell</div>
+  `;
+  card.appendChild(header);
+
+  const shellRow = document.createElement("div");
+  shellRow.className = "shell-row";
+  ["s1","s2","s3"].forEach((key, i) => {
+    const val = item[key];
+    const isWhole = typeof val === "string" && val.includes("whole case");
+    const div = document.createElement("div");
+    div.innerHTML = `<div class="label">${SHOW_NAMES[i+1]}</div><div class="val ${isWhole ? 'whole-case' : ''}">${val}</div>`;
+    shellRow.appendChild(div);
+  });
+  card.appendChild(shellRow);
+
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.innerHTML = `<span class="arrow">&#9654;</span> Effects`;
+  details.appendChild(summary);
+
+  const effectsContainer = document.createElement("div");
+  const tallyContainer = document.createElement("div");
+  tallyContainer.className = "effects-tally";
+
+  details.appendChild(effectsContainer);
+  details.appendChild(tallyContainer);
+
+  renderEffects(item, itemIndex, effectsContainer, tallyContainer);
+
+  card.appendChild(details);
+  container.appendChild(card);
+});
+</script>
+
+</body>
+</html>
