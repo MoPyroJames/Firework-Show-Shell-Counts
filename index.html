@@ -547,8 +547,34 @@ const items = [
 const container = document.getElementById("cases");
 
 const SHOW_NAMES = { 1: "Innsbrook", 2: "BG1", 3: "BG2" };
-// assignments[itemIndex][effectIndex] = 1, 2, or 3 (or undefined)
-const assignments = {};
+const STORAGE_KEY = "fireworks_show_assignments_v1";
+
+function loadAssignments() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveAssignments() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+    const statusEl = document.getElementById("save-status");
+    if (statusEl) {
+      const now = new Date();
+      statusEl.textContent = "Saved " + now.toLocaleTimeString();
+      statusEl.classList.add("flash");
+      setTimeout(() => statusEl.classList.remove("flash"), 600);
+    }
+  } catch (e) {
+    // storage unavailable (private browsing, etc.) — fail silently
+  }
+}
+
+// assignments[itemIndex][effectIndex] = {1: n, 2: n, 3: n}
+const assignments = loadAssignments();
 
 function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
   effectsContainer.innerHTML = "";
@@ -639,6 +665,7 @@ function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
         live[showNum] = Math.max(0, parseInt(input.value, 10) || 0);
         updateTotalLabel();
         updateTally();
+        saveAssignments();
       });
       field.appendChild(label);
       field.appendChild(input);
