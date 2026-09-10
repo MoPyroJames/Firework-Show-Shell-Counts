@@ -49,12 +49,6 @@
   .print-btn:hover {
     background: #ff7a3d;
   }
-  .download-btn {
-    background: #2b5aa1;
-  }
-  .download-btn:hover {
-    background: #3a72c4;
-  }
   .pdf-btn {
     background: #7a3fa0;
   }
@@ -342,7 +336,6 @@
 
 <div class="header-controls">
   <button id="print-report-btn" class="print-btn" type="button">🖨 Print Report</button>
-  <button id="download-summary-btn" class="print-btn download-btn" type="button">⬇ Download Summary</button>
   <button id="download-pdf-btn" class="print-btn pdf-btn" type="button">📄 Save as PDF</button>
   <span id="save-status" class="save-status">Not saved yet</span>
 </div>
@@ -1008,7 +1001,11 @@ function buildPrintReport() {
   const printContainer = document.getElementById("print-report-content");
   printContainer.innerHTML = html;
 
-  window.print();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
 }
 
 // Builds a fully standalone, read-only HTML file (no inputs, no editing
@@ -1024,8 +1021,13 @@ function buildSnapshotClone() {
   const headerControls = clone.querySelector(".header-controls");
   if (headerControls) headerControls.remove();
 
-  const printContainer = clone.querySelector("#print-report-content");
-  if (printContainer) printContainer.remove();
+  // Strip both hidden print containers out of the clone — otherwise, when this
+  // clone's HTML is later injected back into one of those same containers,
+  // it creates an invalid nested duplicate-ID element.
+  const printReportContainer = clone.querySelector("#print-report-content");
+  if (printReportContainer) printReportContainer.remove();
+  const printSnapshotContainer = clone.querySelector("#print-snapshot-content");
+  if (printSnapshotContainer) printSnapshotContainer.remove();
 
   clone.querySelectorAll(".qty-inputs input").forEach(input => {
     const span = document.createElement("span");
@@ -1063,23 +1065,6 @@ function buildSnapshotClone() {
   return clone;
 }
 
-function downloadSummary() {
-  const clone = buildSnapshotClone();
-  const doc = "<!DOCTYPE html>\n" + clone.outerHTML;
-
-  const blob = new Blob([doc], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "fireworks-show-assignments-summary.html";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// Renders the same read-only snapshot into an off-screen container, captures
-// it as an image, and slices it into pages of an actual downloadable PDF.
 // Uses the browser's own native print-to-PDF — no external libraries,
 // so nothing can be blocked by a network filter, ad-blocker, or CSP.
 function downloadPDF() {
@@ -1089,11 +1074,17 @@ function downloadPDF() {
   const target = document.getElementById("print-snapshot-content");
   target.innerHTML = bodyClone.innerHTML;
 
-  window.print();
+  // Give the browser two animation frames to fully lay out and paint the
+  // newly injected content before opening the print dialog — printing
+  // immediately after an innerHTML assignment can produce a blank page.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
 }
 
 document.getElementById("print-report-btn").addEventListener("click", buildPrintReport);
-document.getElementById("download-summary-btn").addEventListener("click", downloadSummary);
 document.getElementById("download-pdf-btn").addEventListener("click", downloadPDF);
 </script>
 
