@@ -30,6 +30,34 @@
     border-radius: 8px;
     box-shadow: 0 4px 14px rgba(0,0,0,0.25);
   }
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .print-btn {
+    background: #e8622c;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .print-btn:hover {
+    background: #ff7a3d;
+  }
+  .save-status {
+    font-size: 12px;
+    color: #b8c4dd;
+    transition: opacity 0.2s ease;
+  }
+  .save-status.flash {
+    color: #7dd3a0;
+    font-weight: 700;
+  }
   h1 {
     font-size: 22px;
     color: #fdfaf6;
@@ -230,6 +258,63 @@
     font-size: 17px;
     color: #ff8a4c;
   }
+  .print-only {
+    display: none;
+  }
+  @media print {
+    body > *:not(#print-report-content) {
+      display: none !important;
+    }
+    body {
+      background: #fff !important;
+      padding: 0;
+    }
+    .print-only {
+      display: block !important;
+    }
+    #print-report-content h1 {
+      font-size: 20px;
+      margin-bottom: 4px;
+      color: #000;
+      border: none;
+    }
+    #print-report-content .print-meta {
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+    #print-report-content h2 {
+      font-size: 16px;
+      margin-top: 32px;
+      margin-bottom: 4px;
+      border-bottom: 2px solid #e8622c;
+      padding-bottom: 4px;
+      color: #b5451b;
+      page-break-before: always;
+    }
+    #print-report-content h2:first-of-type {
+      page-break-before: avoid;
+    }
+    #print-report-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    #print-report-content th, #print-report-content td {
+      text-align: left;
+      padding: 5px 8px;
+      border-bottom: 1px solid #ddd;
+      color: #000;
+    }
+    #print-report-content th {
+      background: #f2f2f2;
+    }
+    #print-report-content tr:last-child td {
+      font-weight: bold;
+      border-top: 2px solid #333;
+    }
+  }
 </style>
 </head>
 <body>
@@ -239,7 +324,14 @@
   <h1>Fireworks Show Breakdown — Innsbrook / BG1 / BG2</h1>
 </div>
 
+<div class="header-controls">
+  <button id="print-report-btn" class="print-btn" type="button">🖨 Print Report</button>
+  <span id="save-status" class="save-status">Not saved yet</span>
+</div>
+
 <div id="cases"></div>
+
+<div id="print-report-content" class="print-only"></div>
 
 <h2 class="section-title">Final Cost by Show</h2>
 <table class="summary-table">
@@ -576,6 +668,85 @@ function saveAssignments() {
 // assignments[itemIndex][effectIndex] = {1: n, 2: n, 3: n}
 const assignments = loadAssignments();
 
+function parseQty(effectLabel) {
+  const match = effectLabel.match(/\((\d+)\)\s*$/);
+  return match ? parseInt(match[1], 10) : 1;
+}
+
+function getActiveShows(it) {
+  const vals = [it.s1, it.s2, it.s3];
+  const active = [];
+  vals.forEach((v, idx) => {
+    let numeric = 0;
+    if (typeof v === "number") {
+      numeric = v;
+    } else if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed !== "–" && trimmed !== "-") {
+        const m = trimmed.match(/(\d+)/);
+        numeric = m ? parseInt(m[1], 10) : 0;
+      }
+    }
+    if (numeric > 0) active.push(idx + 1);
+  });
+  return active.length ? active : [1, 2, 3];
+}
+
+function evenSplit(item, total) {
+  const active = getActiveShows(item);
+  const n = active.length;
+  const base = Math.floor(total / n);
+  const remainder = total % n;
+  const result = {1:0, 2:0, 3:0};
+  active.forEach((showNum, i) => {
+    result[showNum] = base + (i < remainder ? 1 : 0);
+  });
+  return result;
+}
+
+function parseChainCount(v) {
+  if (typeof v !== "string") return 0;
+  const m = v.match(/(\d+)\s*chain/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function chainDefaultSplit(activeShows, total, offset) {
+  const result = {1:0, 2:0, 3:0};
+  let remaining = total;
+  let idx = offset % activeShows.length;
+  while (remaining > 0) {
+    const show = activeShows[idx % activeShows.length];
+    result[show]++;
+    remaining--;
+    idx++;
+  }
+  return result;
+}
+
+// Makes sure assignments[itemIndex] is fully populated for every effect/chain
+// in this item, using the same default logic as the interactive rows —
+// even if the user never expanded that item's dropdown.
+function ensureItemDefaults(item, itemIndex) {
+  if (!assignments[itemIndex]) assignments[itemIndex] = {};
+  if (item.chains) {
+    const totalChains = parseChainCount(item.s1) + parseChainCount(item.s2) + parseChainCount(item.s3);
+    const qtyPerDesign = item.chains.length ? totalChains / item.chains.length : 0;
+    const activeShowsForChains = getActiveShows(item);
+    item.chains.forEach((chain, chainIdx) => {
+      const chainKey = `chain-${chainIdx}`;
+      if (!assignments[itemIndex][chainKey]) {
+        assignments[itemIndex][chainKey] = chainDefaultSplit(activeShowsForChains, qtyPerDesign, chainIdx);
+      }
+    });
+  } else if (item.effects) {
+    item.effects.forEach((effect, i) => {
+      if (!assignments[itemIndex][i]) {
+        assignments[itemIndex][i] = evenSplit(item, parseQty(effect));
+      }
+    });
+  }
+}
+
 function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
   effectsContainer.innerHTML = "";
   if (!item.effects && !item.chains) {
@@ -587,45 +758,9 @@ function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
     return;
   }
 
-  // assignments[itemIndex][key] = array of show numbers, e.g. [1], [2,3], [1,2,3]
-  // key is either an effect index (flat items) or "chainIdx-effectIdx" (chained items)
+  // assignments[itemIndex][key] = {1: n, 2: n, 3: n}
+  // key is either an effect index (flat items) or "chain-<idx>" (chained items)
   if (!assignments[itemIndex]) assignments[itemIndex] = {};
-
-  function parseQty(effectLabel) {
-    const match = effectLabel.match(/\((\d+)\)\s*$/);
-    return match ? parseInt(match[1], 10) : 1;
-  }
-
-  function getActiveShows(it) {
-    const vals = [it.s1, it.s2, it.s3];
-    const active = [];
-    vals.forEach((v, idx) => {
-      let numeric = 0;
-      if (typeof v === "number") {
-        numeric = v;
-      } else if (typeof v === "string") {
-        const trimmed = v.trim();
-        if (trimmed !== "–" && trimmed !== "-") {
-          const m = trimmed.match(/(\d+)/);
-          numeric = m ? parseInt(m[1], 10) : 0;
-        }
-      }
-      if (numeric > 0) active.push(idx + 1);
-    });
-    return active.length ? active : [1, 2, 3];
-  }
-
-  function evenSplit(total) {
-    const active = getActiveShows(item);
-    const n = active.length;
-    const base = Math.floor(total / n);
-    const remainder = total % n;
-    const result = {1:0, 2:0, 3:0};
-    active.forEach((showNum, i) => {
-      result[showNum] = base + (i < remainder ? 1 : 0);
-    });
-    return result;
-  }
 
   function buildRow(table, key, effectLabel, numberLabel) {
     const tr = document.createElement("tr");
@@ -644,7 +779,7 @@ function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
     const tdBtns = document.createElement("td");
     const totalQty = parseQty(effectLabel);
     if (!assignments[itemIndex][key]) {
-      assignments[itemIndex][key] = evenSplit(totalQty);
+      assignments[itemIndex][key] = evenSplit(item, totalQty);
     }
     const current = assignments[itemIndex][key];
 
@@ -706,27 +841,9 @@ function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
 
   if (item.chains) {
     // total physical chains across the whole item = sum of "N chains" parsed from s1/s2/s3
-    function parseChainCount(v) {
-      if (typeof v !== "string") return 0;
-      const m = v.match(/(\d+)\s*chain/);
-      return m ? parseInt(m[1], 10) : 0;
-    }
     const totalChains = parseChainCount(item.s1) + parseChainCount(item.s2) + parseChainCount(item.s3);
     const qtyPerDesign = item.chains.length ? totalChains / item.chains.length : 0;
     const activeShowsForChains = getActiveShows(item);
-
-    function chainDefaultSplit(total, offset) {
-      const result = {1:0, 2:0, 3:0};
-      let remaining = total;
-      let idx = offset % activeShowsForChains.length;
-      while (remaining > 0) {
-        const show = activeShowsForChains[idx % activeShowsForChains.length];
-        result[show]++;
-        remaining--;
-        idx++;
-      }
-      return result;
-    }
 
     item.chains.forEach((chain, chainIdx) => {
       const chainHeading = document.createElement("div");
@@ -744,7 +861,7 @@ function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
       table.innerHTML = `<tr><th>Chain</th><th>Assign chains to Show</th></tr>`;
       const chainKey = `chain-${chainIdx}`;
       if (!assignments[itemIndex][chainKey]) {
-        assignments[itemIndex][chainKey] = chainDefaultSplit(qtyPerDesign, chainIdx);
+        assignments[itemIndex][chainKey] = chainDefaultSplit(activeShowsForChains, qtyPerDesign, chainIdx);
       }
       buildRow(table, chainKey, `${chain.label} (${qtyPerDesign})`);
       effectsContainer.appendChild(table);
@@ -803,6 +920,68 @@ items.forEach((item, itemIndex) => {
   card.appendChild(details);
   container.appendChild(card);
 });
+
+function getEffectQtyForShow(item, itemIndex, key, showNum) {
+  const rec = assignments[itemIndex] && assignments[itemIndex][key];
+  return rec ? (rec[showNum] || 0) : 0;
+}
+
+function buildPrintReport() {
+  // make sure every item has computed defaults, even ones never expanded
+  items.forEach((item, itemIndex) => ensureItemDefaults(item, itemIndex));
+
+  const sections = [1, 2, 3].map(showNum => {
+    const rows = [];
+    items.forEach((item, itemIndex) => {
+      if (item.chains) {
+        item.chains.forEach((chain, chainIdx) => {
+          const key = `chain-${chainIdx}`;
+          const qty = getEffectQtyForShow(item, itemIndex, key, showNum);
+          if (qty > 0) {
+            rows.push({
+              item: item.name,
+              effect: chain.label + " (whole chain)",
+              qty: qty
+            });
+          }
+        });
+      } else if (item.effects) {
+        item.effects.forEach((effect, i) => {
+          const qty = getEffectQtyForShow(item, itemIndex, i, showNum);
+          if (qty > 0) {
+            rows.push({
+              item: item.name,
+              effect: effect.replace(/\s*\(\d+\)\s*$/, ""),
+              qty: qty
+            });
+          }
+        });
+      }
+    });
+    const totalShells = rows.reduce((sum, r) => sum + r.qty, 0);
+    return { showNum, name: SHOW_NAMES[showNum], rows, totalShells };
+  });
+
+  let html = `<h1>Fireworks Show Breakdown — Shell Assignments</h1>`;
+  html += `<div class="print-meta">Generated ${new Date().toLocaleString()}</div>`;
+
+  sections.forEach(section => {
+    html += `<h2>${section.name}</h2>`;
+    html += `<table><tr><th>#</th><th>Item</th><th>Effect</th><th>Qty</th></tr>`;
+    section.rows.forEach((r, i) => {
+      html += `<tr><td>${i + 1}</td><td>${r.item}</td><td>${r.effect}</td><td>${r.qty}</td></tr>`;
+    });
+    html += `<tr><td colspan="3">Total shells</td><td>${section.totalShells}</td></tr>`;
+    html += `</table>`;
+  });
+
+  const printContainer = document.getElementById("print-report-content");
+  printContainer.innerHTML = html;
+
+  window.print();
+}
+
+document.getElementById("print-report-btn").addEventListener("click", buildPrintReport);
 </script>
 
 </body>
