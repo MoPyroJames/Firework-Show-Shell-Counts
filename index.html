@@ -49,6 +49,12 @@
   .print-btn:hover {
     background: #ff7a3d;
   }
+  .download-btn {
+    background: #2b5aa1;
+  }
+  .download-btn:hover {
+    background: #3a72c4;
+  }
   .save-status {
     font-size: 12px;
     color: #b8c4dd;
@@ -326,6 +332,7 @@
 
 <div class="header-controls">
   <button id="print-report-btn" class="print-btn" type="button">🖨 Print Report</button>
+  <button id="download-summary-btn" class="print-btn download-btn" type="button">⬇ Download Summary</button>
   <span id="save-status" class="save-status">Not saved yet</span>
 </div>
 
@@ -926,11 +933,12 @@ function getEffectQtyForShow(item, itemIndex, key, showNum) {
   return rec ? (rec[showNum] || 0) : 0;
 }
 
-function buildPrintReport() {
-  // make sure every item has computed defaults, even ones never expanded
+// Computes the per-show breakdown data. Shared by the print view and the
+// downloadable shooter summary so both always show the same numbers.
+function buildReportSections() {
   items.forEach((item, itemIndex) => ensureItemDefaults(item, itemIndex));
 
-  const sections = [1, 2, 3].map(showNum => {
+  return [1, 2, 3].map(showNum => {
     const rows = [];
     items.forEach((item, itemIndex) => {
       if (item.chains) {
@@ -961,7 +969,10 @@ function buildPrintReport() {
     const totalShells = rows.reduce((sum, r) => sum + r.qty, 0);
     return { showNum, name: SHOW_NAMES[showNum], rows, totalShells };
   });
+}
 
+// Builds just the inner report markup (used inside the live page for printing).
+function buildReportInnerHTML(sections) {
   let html = `<h1>Fireworks Show Breakdown — Shell Assignments</h1>`;
   html += `<div class="print-meta">Generated ${new Date().toLocaleString()}</div>`;
 
@@ -975,13 +986,90 @@ function buildPrintReport() {
     html += `</table>`;
   });
 
+  return html;
+}
+
+function buildPrintReport() {
+  const sections = buildReportSections();
+  const html = buildReportInnerHTML(sections);
+
   const printContainer = document.getElementById("print-report-content");
   printContainer.innerHTML = html;
 
   window.print();
 }
 
+// Builds a fully standalone, read-only HTML file (no inputs, no editing
+// controls) that can be emailed, texted, or shared as a link with shooters.
+function downloadSummary() {
+  // make sure every item's defaults are computed, even ones never expanded
+  items.forEach((item, itemIndex) => ensureItemDefaults(item, itemIndex));
+
+  // Clone the whole page as it currently looks
+  const clone = document.documentElement.cloneNode(true);
+
+  // Drop the header controls (Print/Download buttons + save status) — not needed in a static snapshot
+  const headerControls = clone.querySelector(".header-controls");
+  if (headerControls) headerControls.remove();
+
+  // Drop the hidden print-only report container — not needed here
+  const printContainer = clone.querySelector("#print-report-content");
+  if (printContainer) printContainer.remove();
+
+  // Replace every editable quantity box with plain static text showing its current value
+  clone.querySelectorAll(".qty-inputs input").forEach(input => {
+    const span = document.createElement("span");
+    span.className = "qty-value-static";
+    span.textContent = input.value || "0";
+    input.replaceWith(span);
+  });
+
+  // Open every <details> section by default so shooters see everything without clicking
+  clone.querySelectorAll("details").forEach(d => d.setAttribute("open", ""));
+
+  // Remove all scripts — nothing left to interact with, and <details> works natively without JS
+  clone.querySelectorAll("script").forEach(s => s.remove());
+
+  // Add a small static banner explaining this is a locked snapshot
+  const body = clone.querySelector("body");
+  const banner = document.createElement("div");
+  banner.style.cssText = "background:#2b5aa1;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;text-align:center;";
+  banner.textContent = "Read-only snapshot — generated " + new Date().toLocaleString() + ". Quantities cannot be edited.";
+  body.insertBefore(banner, body.firstChild);
+
+  // Style the static quantity spans to look like the original input boxes
+  const style = document.createElement("style");
+  style.textContent = `
+    .qty-value-static {
+      display: inline-block;
+      width: 44px;
+      text-align: center;
+      padding: 3px 2px;
+      font-size: 13px;
+      font-family: inherit;
+      border: 1px solid #d8c9b8;
+      border-radius: 5px;
+      background: #f5f0e8;
+      color: #2b2320;
+    }
+  `;
+  clone.querySelector("head").appendChild(style);
+
+  const doc = "<!DOCTYPE html>\n" + clone.outerHTML;
+
+  const blob = new Blob([doc], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "fireworks-show-assignments-summary.html";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 document.getElementById("print-report-btn").addEventListener("click", buildPrintReport);
+document.getElementById("download-summary-btn").addEventListener("click", downloadSummary);
 </script>
 
 </body>
