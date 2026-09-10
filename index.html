@@ -348,9 +348,9 @@
 <h2 class="section-title">Final Cost by Show</h2>
 <table class="summary-table">
   <tr><th>Show</th><th>Total</th></tr>
-  <tr><td>Innsbrook</td><td>$3,535.11</td></tr>
-  <tr><td>BG1</td><td>$3,535.11</td></tr>
-  <tr><td>BG2</td><td>$3,519.78</td></tr>
+  <tr><td>Innsbrook</td><td id="cost-total-1">$3,535.11</td></tr>
+  <tr><td>BG1</td><td id="cost-total-2">$3,535.11</td></tr>
+  <tr><td>BG2</td><td id="cost-total-3">$3,519.78</td></tr>
 </table>
 
 <script>
@@ -759,6 +759,58 @@ function ensureItemDefaults(item, itemIndex) {
   }
 }
 
+function parseCPS(item) {
+  const digits = (item.cps || "").replace(/[^0-9.]/g, "");
+  return parseFloat(digits) || 0;
+}
+
+// For chain items, the assigned quantity is in whole physical chains, not
+// shells, so cost needs shells-per-chain to convert. Derived from the
+// "N chains (M shells)" text already shown in the shell-count columns.
+function parseShellsPerChain(item) {
+  const vals = [item.s1, item.s2, item.s3];
+  for (const v of vals) {
+    if (typeof v === "string") {
+      const m = v.match(/(\d+)\s*chains?\s*\((\d+)\s*shells?\)/);
+      if (m) {
+        const chains = parseInt(m[1], 10);
+        const shells = parseInt(m[2], 10);
+        if (chains > 0) return shells / chains;
+      }
+    }
+  }
+  return 1;
+}
+
+// Recomputes each show's total cost from the live quantity assignments,
+// so the summary table always reflects whatever has actually been entered.
+function updateCostSummary() {
+  const totals = {1: 0, 2: 0, 3: 0};
+
+  items.forEach((item, itemIndex) => {
+    ensureItemDefaults(item, itemIndex);
+    const cps = parseCPS(item);
+    const rec = assignments[itemIndex];
+    if (!rec) return;
+
+    const shellsPerChain = item.chains ? parseShellsPerChain(item) : 1;
+
+    Object.keys(rec).forEach(key => {
+      const qtyObj = rec[key];
+      [1, 2, 3].forEach(showNum => {
+        const qty = (qtyObj && qtyObj[showNum]) || 0;
+        const shellEquivalent = item.chains ? qty * shellsPerChain : qty;
+        totals[showNum] += shellEquivalent * cps;
+      });
+    });
+  });
+
+  [1, 2, 3].forEach(showNum => {
+    const el = document.getElementById("cost-total-" + showNum);
+    if (el) el.textContent = "$" + totals[showNum].toFixed(2);
+  });
+}
+
 function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
   effectsContainer.innerHTML = "";
   if (!item.effects && !item.chains) {
@@ -813,6 +865,7 @@ function renderEffects(item, itemIndex, effectsContainer, tallyContainer) {
         updateTotalLabel();
         updateTally();
         saveAssignments();
+        updateCostSummary();
       });
       field.appendChild(label);
       field.appendChild(input);
@@ -932,6 +985,8 @@ items.forEach((item, itemIndex) => {
   card.appendChild(details);
   container.appendChild(card);
 });
+
+updateCostSummary();
 
 function getEffectQtyForShow(item, itemIndex, key, showNum) {
   const rec = assignments[itemIndex] && assignments[itemIndex][key];
